@@ -28,27 +28,10 @@ const readGit = async (filename) => {
     return readFile(join(root, filename), 'utf8');
 }
 
-// 커밋 해시 가져오기
+// 커밋 해시 가져오기 (COMMIT_HASH 사용하지 않음)
 export const getCommit = async () => {
-    // 환경 변수 사용
-    if (process.env.COMMIT_HASH) {
-        return process.env.COMMIT_HASH;
-    }
-
-    // 개발 환경에서만 .git 접근
-    if (!root) {
-        console.warn('no git repository root found. Using default commit hash.');
-        return 'unknown';
-    }
-
-    try {
-        const logs = await readGit('.git/logs/HEAD');
-        const lastLog = logs.split('\n').filter(Boolean).pop();
-        return lastLog?.split(' ')[1] || 'unknown';
-    } catch (error) {
-        console.error('Error reading commit hash:', error);
-        return 'unknown';
-    }
+    // COMMIT_HASH 사용을 생략하고 기본값 반환
+    return 'unknown';
 }
 
 // 브랜치 이름 가져오기
