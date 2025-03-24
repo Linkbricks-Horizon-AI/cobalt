@@ -28,6 +28,7 @@ import snapchat from "./services/snapchat.js";
 import loom from "./services/loom.js";
 import facebook from "./services/facebook.js";
 import bluesky from "./services/bluesky.js";
+import xiaohongshu from "./services/xiaohongshu.js";
 
 let freebind;
 
@@ -108,7 +109,7 @@ export default async function({ host, patternMatch, params }) {
                 }
 
                 if (url.hostname === "music.youtube.com" || isAudioOnly) {
-                    fetchInfo.quality = "max";
+                    fetchInfo.quality = "1080";
                     fetchInfo.format = "vp9";
                     fetchInfo.isAudioOnly = true;
                     fetchInfo.isAudioMuted = false;
@@ -119,9 +120,8 @@ export default async function({ host, patternMatch, params }) {
 
             case "reddit":
                 r = await reddit({
-                    sub: patternMatch.sub,
-                    id: patternMatch.id,
-                    user: patternMatch.user
+                    ...patternMatch,
+                    dispatcher,
                 });
                 break;
 
@@ -227,7 +227,8 @@ export default async function({ host, patternMatch, params }) {
 
             case "facebook":
                 r = await facebook({
-                    ...patternMatch
+                    ...patternMatch,
+                    dispatcher
                 });
                 break;
 
@@ -236,6 +237,15 @@ export default async function({ host, patternMatch, params }) {
                     ...patternMatch,
                     alwaysProxy: params.alwaysProxy,
                     dispatcher
+                });
+                break;
+
+            case "xiaohongshu":
+                r = await xiaohongshu({
+                    ...patternMatch,
+                    h265: params.tiktokH265,
+                    isAudioOnly,
+                    dispatcher,
                 });
                 break;
 

@@ -7,7 +7,7 @@ const CHUNK_SIZE = BigInt(8e6); // 8 MB
 const min = (a, b) => a < b ? a : b;
 
 async function* readChunks(streamInfo, size) {
-    let read = 0n;
+    let read = 0n, chunksSinceTransplant = 0;
     while (read < size) {
         if (streamInfo.controller.signal.aborted) {
             throw new Error("controller aborted");
@@ -19,8 +19,19 @@ async function* readChunks(streamInfo, size) {
                 Range: `bytes=${read}-${read + CHUNK_SIZE}`
             },
             dispatcher: streamInfo.dispatcher,
-            signal: streamInfo.controller.signal
+            signal: streamInfo.controller.signal,
+            maxRedirections: 4
         });
+
+        if (chunk.statusCode === 403 && chunksSinceTransplant >= 3 && streamInfo.transplant) {
+            chunksSinceTransplant = 0;
+            try {
+                await streamInfo.transplant(streamInfo.dispatcher);
+                continue;
+            } catch {}
+        }
+
+        chunksSinceTransplant++;
 
         const expected = min(CHUNK_SIZE, size - read);
         const received = BigInt(chunk.headers['content-length']);
@@ -42,14 +53,25 @@ async function handleYoutubeStream(streamInfo, res) {
     const cleanup = () => (res.end(), closeRequest(streamInfo.controller));
 
     try {
-        const req = await fetch(streamInfo.url, {
-            headers: getHeaders('youtube'),
-            method: 'HEAD',
-            dispatcher: streamInfo.dispatcher,
-            signal
-        });
+        let req, attempts = 3;
+        while (attempts--) {
+            req = await fetch(streamInfo.url, {
+                headers: getHeaders('youtube'),
+                method: 'HEAD',
+                dispatcher: streamInfo.dispatcher,
+                signal
+            });
 
-        streamInfo.url = req.url;
+            streamInfo.url = req.url;
+            if (req.status === 403 && streamInfo.transplant) {
+                try {
+                    await streamInfo.transplant(streamInfo.dispatcher);
+                } catch {
+                    break;
+                }
+            } else break;
+        }
+
         const size = BigInt(req.headers.get('content-length'));
 
         if (req.status !== 200 || !size) {
